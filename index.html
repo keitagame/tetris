@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <title>JavaScript Tetris</title>
+  <style>
+    body { background:#111; color:#eee; font-family:system-ui, sans-serif; display:flex; gap:24px; padding:24px; }
+    #wrap { display:flex; gap:24px; align-items:flex-start; }
+    canvas { background:#000; box-shadow:0 0 24px rgba(0,0,0,0.5); image-rendering:pixelated; }
+    .panel { min-width:200px; }
+    .panel h1 { margin:0 0 8px; font-size:18px; }
+    .stat { margin:6px 0; }
+    .small { color:#aaa; font-size:12px; }
+    button { padding:8px 12px; background:#333; color:#eee; border:1px solid #555; cursor:pointer; }
+    button:hover { background:#444; }
+  </style>
+</head>
+<body>
+  <div id="wrap">
+    <canvas id="game" width="200" height="400"></canvas>
+    <div class="panel">
+      <h1>テトリス</h1>
+      <div class="stat">スコア: <span id="score">0</span></div>
+      <div class="stat">レベル: <span id="level">1</span></div>
+      <div class="stat">ライン: <span id="lines">0</span></div>
+      <div class="stat small">← → 移動 / ↑ 回転 / ↓ 落下 / Space ハードドロップ</div>
+      <div style="margin-top:12px;">
+        <button id="restart">リスタート</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    // 設定
+// 横スイープの光エフェクト
+const sweeps = []; // { yPx, progressPx, speedPx, trailPx, alpha, fading, fadePerSec, color }
+
+    const COLS = 10, ROWS = 20, SIZE = 20;
+    const DROP_BASE_MS = 700; // レベル1の落下間隔
+    const COLORS = {
+      0: '#000000', // 空
+      1: '#00BCD4', // I
+      2: '#FFC107', // O
+      3: '#9C27B0', // T
+      4: '#4CAF50', // S
+      5: '#F44336', // Z
+      6: '#3F51B5', // J
+      7: '#FF9800', // L
+      8: '#FFFFFF',
+    };
+
+    // テトロミノ定義（行列）
+    const SHAPES = {
+      I: [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],
+      O: [[2,2],[2,2]],
+      T: [[0,3,0],[3,3,3],[0,0,0]],
+      S: [[0,4,4],[4,4,0],[0,0,0]],
+      Z: [[5,5,0],[0,5,5],[0,0,0]],
+      J: [[6,0,0],[6,6,6],[0,0,0]],
+      L: [[0,0,7],[7,7,7],[0,0,0]],
+    };
+    const TYPES = ['I','O','T','S','Z','J','L'];
+
+    // Canvas セットアップ
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+
+    // UI
+    const scoreEl = document.getElementById('score');
+    const levelEl = document.getElementById('level');
+    const linesEl = document.getElementById('lines');
+    document.getElementById('restart').addEventListener('click', reset);
+
+    // 状態
+    let board, current, nextQueue, x, y;
+    let score, level, lines;
+    let dropCounter = 0, lastTime = 0;
+    let gameOver = false;
+    function getGhostY(px, py, mat) {
+  while (!collides(px, py + 1, mat)) {
+    py++;
+  }
+  return py;
+}
+
+    // 7バッグ
+    function makeBag() {
+      const bag = TYPES.slice();
+      for (let i = bag.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [bag[i], bag[j]] = [bag[j], bag[i]];
+      }
+      return bag;
+    }
+
+    function createBoard() {
+      const b = [];
+      for (let r = 0; r < ROWS; r++) {
+        b[r] = new Array(COLS).fill(0);
+      }
+      return b;
+    }
+
+    function copyMatrix(m) { return m.map(row => row.slice()); }
+
+    // 回転（時計回り90度）
+    function rotate(matrix) {
+      const N = matrix.length;
+      const res = Array.from({length: N}, () => Array(N).fill(0));
+      for (let r = 0; r < N; r++) {
+        for (let c = 0; c < N; c++) {
+          res[c][N - 1 - r] = matrix[r][c];
+        }
+      }
+      return res;
+    }
+
+    function spawn() {
+      if (nextQueue.length === 0) nextQueue = makeBag();
+      const type = nextQueue.shift();
+      current = copyMatrix(SHAPES[type]);
+      // スポーン位置
+      y = 0;
+      x = Math.floor((COLS - current[0].length) / 2);
+      if (collides(x, y, current)) {
+        gameOver = true;
+      }
+    }
+
+    function collides(px, py, mat) {
+      for (let r = 0; r < mat.length; r++) {
+        for (let c = 0; c < mat[r].length; c++) {
+          const val = mat[r][c];
+          if (!val) continue;
+          const bx = px + c;
+          const by = py + r;
+          if (bx < 0 || bx >= COLS || by < 0 || by >= ROWS) return true;
+          if (board[by][bx]) return true;
+        }
+      }
+      return false;
+    }
+
+    function merge() {
+      for (let r = 0; r < current.length; r++) {
+        for (let c = 0; c < current[r].length; c++) {
+          const val = current[r][c];
+          if (val) {
+            board[y + r][x + c] = val;
+          }
+        }
+      }
+    }
+    let clearingRows = [];
+let clearStep = 0;
+let clearTimer = 0;
+    function clearLines() {
+  let rows = [];
+  for (let r = ROWS - 1; r >= 0; r--) {
+    if (board[r].every(v => v !== 0)) {
+      rows.push(r);
+    }
+  }
+  if (rows.length > 0) {
+    clearingRows = rows;
+    clearStep = 0;
+    clearTimer = 0;
+  }
+}
+
+
+    function hardDrop() {
+      while (!collides(x, y + 1, current)) y++;
+      lockPiece();
+    }
+
+    function softDrop() {
+      if (!collides(x, y + 1, current)) {
+        y++;
+        score += 1; // ソフトドロップ加点（任意）
+        updateUI();
+      } else {
+        lockPiece();
+      }
+    }
+
+    function lockPiece() {
+      merge();
+      clearLines();
+      spawn();
+    }
+
+    function updateUI() {
+      scoreEl.textContent = score;
+      levelEl.textContent = level;
+      linesEl.textContent = lines;
+    }
+
+    // 描画
+   function drawCell(cx, cy, val) {
+  if (val === 8) {
+    // 輝きエフェクト
+    const grad = ctx.createRadialGradient(
+      cx * SIZE + SIZE/2, cy * SIZE + SIZE/2, 0.1,
+      cx * SIZE + SIZE/2, cy * SIZE + SIZE/2, SIZE
+    );
+    ctx.shadowBlur = 90;  
+    grad.addColorStop(0, 'rgba(255,255,255,1)');
+    grad.addColorStop(0.5, 'rgba(255,255,255,0.9)');
+    grad.addColorStop(1.0, 'rgba(255,255,255,0.8)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(cx * SIZE, cy * SIZE, SIZE, SIZE);
+  } else {
+    ctx.fillStyle = COLORS[val];
+    ctx.fillRect(cx * SIZE, cy * SIZE, SIZE, SIZE);
+    if (val) {
+      ctx.strokeStyle = '#111';
+      ctx.strokeRect(cx * SIZE, cy * SIZE, SIZE, SIZE);
+    }
+  }
+}
+
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // 盤面
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          drawCell(c, r, board[r][c]);
+        }
+      }
+ if (sweeps.length) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter'; // 加算合成で光を強調
+    for (const s of sweeps) {
+      const x0 = s.progressPx;
+      const x1 = s.progressPx + s.trailPx;
+
+      // グロー（にじみ）を強く
+      ctx.shadowBlur = 80;
+      ctx.shadowColor = 'rgba(255,255,160,1)';
+      ctx.globalAlpha = Math.max(0, Math.min(1, s.alpha));
+
+      // コアの光（線の中心）
+      const grad = ctx.createLinearGradient(x0, s.yPx, x1, s.yPx);
+      grad.addColorStop(0.0, 'rgba(255,255,255,0.9)');
+      grad.addColorStop(0.4, 'rgba(255,255,180,0.8)');
+      grad.addColorStop(1.0, 'rgba(255,255,0,0)');
+      ctx.fillStyle = grad;
+
+      // 線の太さは1マス分（好みで ±）
+      ctx.fillRect(x0, s.yPx, s.trailPx, SIZE);
+
+      // さらに中心線を重ねて「芯」を強調（任意）
+      ctx.shadowBlur = 20;
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.fillRect(x0, s.yPx + SIZE * 0.25, s.trailPx, SIZE * 0.5);
+    }
+    ctx.restore();
+  }
+if (!gameOver && current) {
+    const gy = getGhostY(x, y, current);
+    ctx.globalAlpha = 0.3; // 半透明
+    for (let r = 0; r < current.length; r++) {
+      for (let c = 0; c < current[r].length; c++) {
+        if (current[r][c]) {
+          drawCell(x + c, gy + r, current[r][c]);
+        }
+      }
+    }
+    ctx.globalAlpha = 1.0; // 戻す
+  }
+      // 現在ピース
+      if (!gameOver && current) {
+        for (let r = 0; r < current.length; r++) {
+          for (let c = 0; c < current[r].length; c++) {
+            const val = current[r][c];
+            if (val) drawCell(x + c, y + r, val);
+          }
+        }
+      }
+      // ゲームオーバー表示
+      if (gameOver) {
+        ctx.fillStyle = 'rgba(0,0,0,0.6)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'center';
+        ctx.font = 'bold 16px system-ui';
+        ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2);
+      }
+    }
+
+    // ループ
+    function dropIntervalMs() {
+      // レベルに応じて短縮（単純化）
+      return Math.max(90, DROP_BASE_MS - (level - 1) * 70);
+    }
+
+    function update(time = 0) {
+      const delta = time - lastTime;
+      lastTime = time;
+      if (!gameOver) {
+        dropCounter += delta;
+        if (dropCounter > dropIntervalMs()) {
+          softDrop();
+          dropCounter = 0;
+        }
+      }
+     
+if (clearingRows.length > 0) {
+  clearTimer += delta;
+  if (clearTimer > 50) { // 50msごとに1列の右から1マスずつ
+    clearTimer = 0;
+    for (let row of clearingRows) {
+      const col = COLS - 1 - clearStep;
+      if (col >= 0) {
+        // 光らせる → 消す
+        board[row][col] = (board[row][col] ? 0 : 0);
+      }
+    }
+    clearStep++;
+    if (clearStep >= COLS) {
+      // 全部消えたら行を削除
+      for (let row of clearingRows) {
+        board.splice(row, 1);
+        board.unshift(new Array(COLS).fill(0));
+      }
+      // スコア加算など
+      const cleared = clearingRows.length;
+      lines += cleared;
+      const base = [0,100,300,500,800][cleared] || (cleared*200);
+      score += base * level;
+      level = 1 + Math.floor(lines/10);
+      updateUI();
+      clearingRows = [];
+    }
+  }
+}
+
+      draw();
+      requestAnimationFrame(update);
+    }
+
+    // 入力
+    window.addEventListener('keydown', (e) => {
+      if (gameOver) return;
+      if (e.code === 'ArrowLeft') {
+        if (!collides(x - 1, y, current)) x -= 1;
+      } else if (e.code === 'ArrowRight') {
+        if (!collides(x + 1, y, current)) x += 1;
+      } else if (e.code === 'ArrowUp') {
+        const rotated = rotate(current);
+        // 簡易ウォールキック（左右に1マス試す）
+        if (!collides(x, y, rotated)) {
+          current = rotated;
+        } else if (!collides(x - 1, y, rotated)) {
+          x -= 1; current = rotated;
+        } else if (!collides(x + 1, y, rotated)) {
+          x += 1; current = rotated;
+        }
+      } else if (e.code === 'ArrowDown') {
+        softDrop();
+        dropCounter = 0;
+      } else if (e.code === 'Space') {
+        hardDrop();
+        dropCounter = 0;
+      }
+    });
+
+    function reset() {
+      board = createBoard();
+      score = 0; level = 1; lines = 0;
+      nextQueue = makeBag();
+      gameOver = false;
+      spawn();
+      updateUI();
+      dropCounter = 0; lastTime = 0;
+    }
+
+    // 起動
+    reset();
+    update();
+  </script>
+</body>
+</html>
