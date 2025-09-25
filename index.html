@@ -154,10 +154,19 @@ const sweeps = []; // { yPx, progressPx, speedPx, trailPx, alpha, fading, fadePe
 let clearStep = 0;
 let clearTimer = 0;
     function clearLines() {
+let rowsToClear = [];
   let rows = [];
-  for (let r = ROWS - 1; r >= 0; r--) {
+  for (let r = 0; r < ROWS; r++) {
     if (board[r].every(v => v !== 0)) {
-      rows.push(r);
+      rowsToClear.push(r);
+    }
+  }
+
+  if (rowsToClear.length > 0) {
+    for (let i = rowsToClear.length - 1; i >= 0; i--) {
+      const row = rowsToClear[i];
+      board.splice(row, 1);
+      board.unshift(new Array(COLS).fill(0));
     }
   }
   if (rows.length > 0) {
