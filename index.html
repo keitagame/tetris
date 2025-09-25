@@ -38,13 +38,13 @@ const sweeps = []; // { yPx, progressPx, speedPx, trailPx, alpha, fading, fadePe
     const DROP_BASE_MS = 700; // レベル1の落下間隔
     const COLORS = {
       0: '#000000', // 空
-      1: '#00BCD4', // I
-      2: '#FFC107', // O
-      3: '#9C27B0', // T
-      4: '#4CAF50', // S
-      5: '#F44336', // Z
-      6: '#3F51B5', // J
-      7: '#FF9800', // L
+      1: '#00ffff', // I
+      2: '#ffff00', // O
+      3: '#800080', // T
+      4: '#00ff00', // S
+      5: '#ff0000', // Z
+      6: '#0000ff', // J
+      7: '#ffa500', // L
       8: '#FFFFFF',
     };
 
@@ -169,8 +169,8 @@ let rowsToClear = [];
       board.unshift(new Array(COLS).fill(0));
     }
   }
-  if (rows.length > 0) {
-    clearingRows = rows;
+  if (rowsToClear.length > 0) {
+    clearingRows = rowsToClear;
     clearStep = 0;
     clearTimer = 0;
   }
@@ -317,7 +317,7 @@ if (!gameOver && current) {
      
 if (clearingRows.length > 0) {
   clearTimer += delta;
-  if (clearTimer > 50) { // 50msごとに1列の右から1マスずつ
+  if (clearTimer > 30) { // 50msごとに1列の右から1マスずつ
     clearTimer = 0;
     for (let row of clearingRows) {
       const col = COLS - 1 - clearStep;
