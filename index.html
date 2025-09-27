@@ -31,6 +31,8 @@
   </div>
   <script>
     // 設定
+let pendingClearRows = []; // 消去待ちの行を保持する
+
 // 横スイープの光エフェクト
 const sweeps = []; // { yPx, progressPx, speedPx, trailPx, alpha, fading, fadePerSec, color }
 
@@ -47,6 +49,7 @@ const sweeps = []; // { yPx, progressPx, speedPx, trailPx, alpha, fading, fadePe
       7: '#ffa500', // L
       8: '#FFFFFF',
     };
+const flashes = []; // { yPx, progress, speed, alpha, fading }
 
     // テトロミノ定義（行列）
     const SHAPES = {
@@ -156,7 +159,9 @@ let clearTimer = 0;
     function clearLines() {
 let rowsToClear = [];
   let rows = [];
-  for (let r = 0; r < ROWS; r++) {
+  
+
+   for (let r = 0; r < ROWS; r++) {
     if (board[r].every(v => v !== 0)) {
       rowsToClear.push(r);
     }
@@ -170,11 +175,29 @@ let rowsToClear = [];
     }
   }
   if (rowsToClear.length > 0) {
-    clearingRows = rowsToClear;
-    clearStep = 0;
-    clearTimer = 0;
-  }
+pendingClearRows = rowsToClear.slice();
+for (let row of rowsToClear) {
+  flashes.push({
+    yPx: row * SIZE,
+    progress: 0,
+    speed: 1200,   // px/s
+    alpha: 1.0,
+    fading: false
+  });
+board[row] = new Array(COLS).fill(0);
 }
+
+    //clearingRows = rowsToClear;
+    //clearStep = 0;
+    //clearTimer = 0;
+  }
+  }
+  //if (rowsToClear.length > 0) {
+    //clearingRows = rowsToClear;
+    //clearStep = 0;
+    //clearTimer = 0;
+  //}
+
 
 
     function hardDrop() {
@@ -237,6 +260,35 @@ let rowsToClear = [];
           drawCell(c, r, board[r][c]);
         }
       }
+if (flashes.length) {
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (const f of flashes) {
+    ctx.globalAlpha = f.alpha;
+
+    // 左側
+    let gradL = ctx.createLinearGradient(
+      canvas.width/2 - f.progress, f.yPx,
+      canvas.width/2, f.yPx
+    );
+    gradL.addColorStop(0, 'rgba(255,255,0,0)');
+    gradL.addColorStop(1, 'rgba(255,255,255,1)');
+    ctx.fillStyle = gradL;
+    ctx.fillRect(canvas.width/2 - f.progress, f.yPx, f.progress, SIZE);
+
+    // 右側
+    let gradR = ctx.createLinearGradient(
+      canvas.width/2, f.yPx,
+      canvas.width/2 + f.progress, f.yPx
+    );
+    gradR.addColorStop(0, 'rgba(255,255,255,1)');
+    gradR.addColorStop(1, 'rgba(255,255,0,0)');
+    ctx.fillStyle = gradR;
+    ctx.fillRect(canvas.width/2, f.yPx, f.progress, SIZE);
+  }
+  ctx.restore();
+}
+
  if (sweeps.length) {
     ctx.save();
     ctx.globalCompositeOperation = 'lighter'; // 加算合成で光を強調
@@ -314,10 +366,40 @@ if (!gameOver && current) {
           dropCounter = 0;
         }
       }
-     
+     if (flashes.length) {
+  const dt = delta / 800;
+  for (let i = flashes.length - 1; i >= 0; i--) {
+    const f = flashes[i];
+    if (!f.fading) {
+      f.progress += f.speed * dt;
+      if (f.progress >= canvas.width / 2) {
+        f.fading = true;
+      }
+    } else {
+      f.alpha -= 4 * dt;
+      if (f.alpha <= 0) {
+        // フラッシュ終了 → この行を本当に削除
+        board.splice(f.row, 1);
+        board.unshift(new Array(COLS).fill(0));
+        flashes.splice(i, 1);
+      }
+    }
+  }
+}
+// update 内、フラッシュが全部終わったら
+if (flashes.length === 0 && pendingClearRows.length > 0) {
+  // 下の行から順に削除
+  for (let i = pendingClearRows.length - 1; i >= 0; i--) {
+    const row = pendingClearRows[i];
+    board.splice(row, 1);
+    board.unshift(new Array(COLS).fill(0));
+  }
+  pendingClearRows = [];
+}
+
 if (clearingRows.length > 0) {
   clearTimer += delta;
-  if (clearTimer > 30) { // 50msごとに1列の右から1マスずつ
+  if (clearTimer > 50) { // 50msごとに1列の右から1マスずつ
     clearTimer = 0;
     for (let row of clearingRows) {
       const col = COLS - 1 - clearStep;
