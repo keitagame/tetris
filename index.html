@@ -234,7 +234,7 @@
       function softDrop() {
         if (!collides(x, y + 1, current)) {
           y++;
-          score += 1; // ソフトドロップ加点（任意）
+          score += 1; 
           updateUI();
         } else {
           lockPiece();
@@ -461,7 +461,7 @@
             } else {
               f.alpha -= 4 * dt;
               if (f.alpha <= 0) {
-                // フラッシュ終了 → この行を本当に削除
+                
                 board.splice(f.row, 1);
                 board.unshift(new Array(COLS).fill(0));
                 flashes.splice(i, 1);
