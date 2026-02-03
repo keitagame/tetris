@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>対戦テトリス - Tetris Battle</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: white;
+            font-size: 3em;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .game-area {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            align-items: flex-start;
+            flex-wrap: wrap;
+        }
+
+        .left-panel, .right-panel {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            min-width: 280px;
+        }
+
+        .game-container {
+            display: flex;
+            gap: 30px;
+            align-items: flex-start;
+        }
+
+        .player-area {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .player-label {
+            text-align: center;
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        .you {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .opponent {
+            background: #f44336;
+            color: white;
+        }
+
+        canvas {
+            border: 3px solid #333;
+            border-radius: 5px;
+            display: block;
+            background: #000;
+        }
+
+        .info-panel {
+            margin-top: 20px;
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+            font-size: 1.1em;
+        }
+
+        .info-label {
+            font-weight: bold;
+            color: #666;
+        }
+
+        .info-value {
+            color: #333;
+            font-weight: bold;
+        }
+
+        .controls {
+            margin-top: 20px;
+            padding: 15px;
+            background: #e3f2fd;
+            border-radius: 8px;
+        }
+
+        .controls h3 {
+            margin-bottom: 10px;
+            color: #1976d2;
+        }
+
+        .controls p {
+            margin: 5px 0;
+            color: #555;
+        }
+
+        button {
+            padding: 12px 30px;
+            font-size: 1.1em;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+
+        button:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(0,0,0,0.3);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .menu {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .menu input {
+            width: 100%;
+            padding: 12px;
+            margin: 20px 0;
+            font-size: 1.1em;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+        }
+
+        .menu button {
+            width: 100%;
+            margin: 10px 0;
+        }
+
+        .rankings {
+            margin-top: 20px;
+        }
+
+        .ranking-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 10px;
+            background: #e0e0e0;
+            border: none;
+            border-radius: 8px 8px 0 0;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        .tab.active {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .ranking-list {
+            background: white;
+            border-radius: 0 0 8px 8px;
+            padding: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .ranking-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            margin: 5px 0;
+            background: #f5f5f5;
+            border-radius: 5px;
+        }
+
+        .ranking-item.top-1 {
+            background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+            font-weight: bold;
+        }
+
+        .ranking-item.top-2 {
+            background: linear-gradient(135deg, #c0c0c0 0%, #e8e8e8 100%);
+            font-weight: bold;
+        }
+
+        .ranking-item.top-3 {
+            background: linear-gradient(135deg, #cd7f32 0%, #e8b878 100%);
+            font-weight: bold;
+        }
+
+        .rank {
+            font-weight: bold;
+            color: #666;
+            min-width: 30px;
+        }
+
+        .player-name {
+            flex: 1;
+            margin: 0 10px;
+        }
+
+        .score {
+            font-weight: bold;
+            color: #4CAF50;
+        }
+
+        .status-message {
+            text-align: center;
+            font-size: 1.2em;
+            color: #666;
+            margin: 20px 0;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .vs-indicator {
+            text-align: center;
+            font-size: 3em;
+            font-weight: bold;
+            color: #ff9800;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            margin: 20px 0;
+        }
+
+        .game-result {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.5);
+            text-align: center;
+            z-index: 1000;
+        }
+
+        .game-result h2 {
+            font-size: 3em;
+            margin-bottom: 20px;
+        }
+
+        .game-result.win h2 {
+            color: #4CAF50;
+        }
+
+        .game-result.lose h2 {
+            color: #f44336;
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 999;
+        }
+
+        @media (max-width: 1200px) {
+            .game-container {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2em;
+            }
+
+            .player-area {
+                padding: 15px;
+            }
+
+            canvas {
+                width: 280px !important;
+                height: 560px !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎮 対戦テトリス 🎮</h1>
+
+        <!-- メニュー画面 -->
+        <div id="menu" class="menu">
+            <h2>Welcome to Tetris Battle!</h2>
+            <input type="text" id="playerName" placeholder="プレイヤー名を入力" maxlength="20">
+            <button id="findMatchBtn">対戦相手を探す</button>
+            <div class="status-message" id="statusMessage"></div>
+            
+            <div class="rankings">
+                <h3>🏆 ランキング</h3>
+                <div class="ranking-tabs">
+                    <button class="tab active" data-tab="daily">日次</button>
+                    <button class="tab" data-tab="weekly">週間</button>
+                </div>
+                <div class="ranking-list" id="rankingList"></div>
+            </div>
+        </div>
+
+        <!-- ゲーム画面 -->
+        <div id="gameScreen" class="hidden">
+            <div class="game-area">
+                <div class="left-panel">
+                    <h3>📊 ランキング</h3>
+                    <div class="ranking-tabs">
+                        <button class="tab active" data-tab="daily">日次</button>
+                        <button class="tab" data-tab="weekly">週間</button>
+                    </div>
+                    <div class="ranking-list" id="gameRankingList"></div>
+                </div>
+
+                <div class="game-container">
+                    <!-- プレイヤー1（自分） -->
+                    <div class="player-area">
+                        <div class="player-label you">You</div>
+                        <canvas id="playerCanvas" width="300" height="600"></canvas>
+                        <div class="info-panel">
+                            <div class="info-item">
+                                <span class="info-label">スコア:</span>
+                                <span class="info-value" id="playerScore">0</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">ライン:</span>
+                                <span class="info-value" id="playerLines">0</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">レベル:</span>
+                                <span class="info-value" id="playerLevel">1</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="vs-indicator">VS</div>
+
+                    <!-- プレイヤー2（対戦相手） -->
+                    <div class="player-area">
+                        <div class="player-label opponent" id="opponentName">Opponent</div>
+                        <canvas id="opponentCanvas" width="300" height="600"></canvas>
+                        <div class="info-panel">
+                            <div class="info-item">
+                                <span class="info-label">スコア:</span>
+                                <span class="info-value" id="opponentScore">0</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">ライン:</span>
+                                <span class="info-value" id="opponentLines">0</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">レベル:</span>
+                                <span class="info-value" id="opponentLevel">1</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="right-panel">
+                    <div class="controls">
+                        <h3>🎮 操作方法</h3>
+                        <p>⬅️ 左矢印: 左移動</p>
+                        <p>➡️ 右矢印: 右移動</p>
+                        <p>⬇️ 下矢印: 高速落下</p>
+                        <p>⬆️ 上矢印: 回転</p>
+                        <p>スペース: 即座に落下</p>
+                    </div>
+                    <button id="backToMenuBtn" style="width: 100%; margin-top: 20px; background: #f44336;">
+                        メニューに戻る
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // WebSocket接続
+        const socket = io();
+
+        // ゲーム定数
+        const COLS = 10;
+        const ROWS = 20;
+        const BLOCK_SIZE = 30;
+
+        // テトロミノの形状
+        const TETROMINOS = {
+            'I': [[1,1,1,1]],
+            'O': [[1,1], [1,1]],
+            'T': [[0,1,0], [1,1,1]],
+            'S': [[0,1,1], [1,1,0]],
+            'Z': [[1,1,0], [0,1,1]],
+            'J': [[1,0,0], [1,1,1]],
+            'L': [[0,0,1], [1,1,1]]
+        };
+
+        const COLORS = {
+            'I': '#00f0f0',
+            'O': '#f0f000',
+            'T': '#a000f0',
+            'S': '#00f000',
+            'Z': '#f00000',
+            'J': '#0000f0',
+            'L': '#f0a000'
+        };
+
+        // ゲーム状態
+        let gameState = {
+            board: Array(ROWS).fill().map(() => Array(COLS).fill(0)),
+            currentPiece: null,
+            currentX: 0,
+            currentY: 0,
+            score: 0,
+            lines: 0,
+            level: 1,
+            gameOver: false,
+            roomId: null,
+            playerName: '',
+            opponentName: ''
+        };
+
+        let opponentState = {
+            board: Array(ROWS).fill().map(() => Array(COLS).fill(0)),
+            score: 0,
+            lines: 0,
+            level: 1
+        };
+
+        let dropCounter = 0;
+        let dropInterval = 1000;
+        let lastTime = 0;
+        let animationId = null;
+
+        // Canvas要素
+        const playerCanvas = document.getElementById('playerCanvas');
+        const playerCtx = playerCanvas.getContext('2d');
+        const opponentCanvas = document.getElementById('opponentCanvas');
+        const opponentCtx = opponentCanvas.getContext('2d');
+
+        // UI要素
+        const menu = document.getElementById('menu');
+        const gameScreen = document.getElementById('gameScreen');
+        const playerNameInput = document.getElementById('playerName');
+        const findMatchBtn = document.getElementById('findMatchBtn');
+        const statusMessage = document.getElementById('statusMessage');
+        const backToMenuBtn = document.getElementById('backToMenuBtn');
+
+        // 新しいピースを生成
+        function createPiece() {
+            const pieces = Object.keys(TETROMINOS);
+            const type = pieces[Math.floor(Math.random() * pieces.length)];
+            return {
+                type: type,
+                shape: TETROMINOS[type],
+                color: COLORS[type]
+            };
+        }
+
+        // ピースを描画
+        function drawPiece(ctx, piece, offsetX, offsetY) {
+            if (!piece) return;
+            ctx.fillStyle = piece.color;
+            piece.shape.forEach((row, y) => {
+                row.forEach((value, x) => {
+                    if (value) {
+                        ctx.fillRect(
+                            (offsetX + x) * BLOCK_SIZE,
+                            (offsetY + y) * BLOCK_SIZE,
+                            BLOCK_SIZE - 1,
+                            BLOCK_SIZE - 1
+                        );
+                    }
+                });
+            });
+        }
+
+        // ボードを描画
+        function drawBoard(ctx, board) {
+            board.forEach((row, y) => {
+                row.forEach((value, x) => {
+                    if (value) {
+                        ctx.fillStyle = value;
+                        ctx.fillRect(
+                            x * BLOCK_SIZE,
+                            y * BLOCK_SIZE,
+                            BLOCK_SIZE - 1,
+                            BLOCK_SIZE - 1
+                        );
+                    }
+                });
+            });
+        }
+
+        // 画面を描画
+        function draw() {
+            // プレイヤー画面
+            playerCtx.fillStyle = '#000';
+            playerCtx.fillRect(0, 0, playerCanvas.width, playerCanvas.height);
+            drawBoard(playerCtx, gameState.board);
+            drawPiece(playerCtx, gameState.currentPiece, gameState.currentX, gameState.currentY);
+
+            // 対戦相手画面
+            opponentCtx.fillStyle = '#000';
+            opponentCtx.fillRect(0, 0, opponentCanvas.width, opponentCanvas.height);
+            drawBoard(opponentCtx, opponentState.board);
+        }
+
+        // 衝突判定
+        function collide(board, piece, x, y) {
+            if (!piece) return false;
+            for (let py = 0; py < piece.shape.length; py++) {
+                for (let px = 0; px < piece.shape[py].length; px++) {
+                    if (piece.shape[py][px]) {
+                        const newX = x + px;
+                        const newY = y + py;
+                        if (newX < 0 || newX >= COLS || newY >= ROWS) {
+                            return true;
+                        }
+                        if (newY >= 0 && board[newY][newX]) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        // ピースを固定
+        function merge() {
+            gameState.currentPiece.shape.forEach((row, y) => {
+                row.forEach((value, x) => {
+                    if (value) {
+                        const boardY = gameState.currentY + y;
+                        const boardX = gameState.currentX + x;
+                        if (boardY >= 0) {
+                            gameState.board[boardY][boardX] = gameState.currentPiece.color;
+                        }
+                    }
+                });
+            });
+        }
+
+        // ラインをクリア
+        function clearLines() {
+            let linesCleared = 0;
+            outer: for (let y = ROWS - 1; y >= 0; y--) {
+                for (let x = 0; x < COLS; x++) {
+                    if (!gameState.board[y][x]) {
+                        continue outer;
+                    }
+                }
+                gameState.board.splice(y, 1);
+                gameState.board.unshift(Array(COLS).fill(0));
+                linesCleared++;
+                y++;
+            }
+
+            if (linesCleared > 0) {
+                gameState.lines += linesCleared;
+                gameState.score += [0, 100, 300, 500, 800][linesCleared] * gameState.level;
+                gameState.level = Math.floor(gameState.lines / 10) + 1;
+                dropInterval = Math.max(100, 1000 - (gameState.level - 1) * 50);
+                updateUI();
+            }
+        }
+
+        // ピースを回転
+        function rotate() {
+            const rotated = gameState.currentPiece.shape[0].map((_, i) =>
+                gameState.currentPiece.shape.map(row => row[i]).reverse()
+            );
+            const originalShape = gameState.currentPiece.shape;
+            gameState.currentPiece.shape = rotated;
+
+            if (collide(gameState.board, gameState.currentPiece, gameState.currentX, gameState.currentY)) {
+                gameState.currentPiece.shape = originalShape;
+            }
+        }
+
+        // ピースを移動
+        function move(dir) {
+            gameState.currentX += dir;
+            if (collide(gameState.board, gameState.currentPiece, gameState.currentX, gameState.currentY)) {
+                gameState.currentX -= dir;
+            }
+        }
+
+        // ピースを落下
+        function drop() {
+            gameState.currentY++;
+            if (collide(gameState.board, gameState.currentPiece, gameState.currentX, gameState.currentY)) {
+                gameState.currentY--;
+                merge();
+                clearLines();
+                resetPiece();
+                
+                if (collide(gameState.board, gameState.currentPiece, gameState.currentX, gameState.currentY)) {
+                    endGame();
+                }
+            }
+            dropCounter = 0;
+        }
+
+        // ハードドロップ
+        function hardDrop() {
+            while (!collide(gameState.board, gameState.currentPiece, gameState.currentX, gameState.currentY + 1)) {
+                gameState.currentY++;
+                gameState.score += 2;
+            }
+            merge();
+            clearLines();
+            resetPiece();
+            
+            if (collide(gameState.board, gameState.currentPiece, gameState.currentX, gameState.currentY)) {
+                endGame();
+            }
+        }
+
+        // ピースをリセット
+        function resetPiece() {
+            gameState.currentPiece = createPiece();
+            gameState.currentX = Math.floor(COLS / 2) - Math.floor(gameState.currentPiece.shape[0].length / 2);
+            gameState.currentY = 0;
+            updateUI();
+            sendGameUpdate();
+        }
+
+        // UIを更新
+        function updateUI() {
+            document.getElementById('playerScore').textContent = gameState.score;
+            document.getElementById('playerLines').textContent = gameState.lines;
+            document.getElementById('playerLevel').textContent = gameState.level;
+        }
+
+        // ゲームループ
+        function gameLoop(time = 0) {
+            if (gameState.gameOver) return;
+
+            const deltaTime = time - lastTime;
+            lastTime = time;
+            dropCounter += deltaTime;
+
+            if (dropCounter > dropInterval) {
+                drop();
+            }
+
+            draw();
+            animationId = requestAnimationFrame(gameLoop);
+        }
+
+        // ゲーム開始
+        function startGame() {
+            gameState.board = Array(ROWS).fill().map(() => Array(COLS).fill(0));
+            gameState.score = 0;
+            gameState.lines = 0;
+            gameState.level = 1;
+            gameState.gameOver = false;
+            dropInterval = 1000;
+            resetPiece();
+            updateUI();
+            gameLoop();
+        }
+
+        // ゲーム終了
+        function endGame() {
+            gameState.gameOver = true;
+            cancelAnimationFrame(animationId);
+            
+            socket.emit('game_over', {
+                room_id: gameState.roomId,
+                score: gameState.score,
+                name: gameState.playerName
+            });
+        }
+
+        // ゲーム状態を送信
+        function sendGameUpdate() {
+            socket.emit('game_update', {
+                room_id: gameState.roomId,
+                board: gameState.board,
+                score: gameState.score,
+                lines: gameState.lines,
+                level: gameState.level
+            });
+        }
+
+        // キーボード操作
+        document.addEventListener('keydown', (e) => {
+            if (gameState.gameOver || !gameState.currentPiece) return;
+
+            switch(e.key) {
+                case 'ArrowLeft':
+                    move(-1);
+                    break;
+                case 'ArrowRight':
+                    move(1);
+                    break;
+                case 'ArrowDown':
+                    drop();
+                    break;
+                case 'ArrowUp':
+                    rotate();
+                    break;
+                case ' ':
+                    e.preventDefault();
+                    hardDrop();
+                    break;
+            }
+            draw();
+        });
+
+        // ランキング表示
+        function displayRankings(rankings, elementId) {
+            const currentTab = document.querySelector(`#${elementId}`).closest('.rankings, .left-panel').querySelector('.tab.active').dataset.tab;
+            const list = rankings[currentTab] || [];
+            
+            const html = list.map((item, index) => {
+                const rankClass = index === 0 ? 'top-1' : index === 1 ? 'top-2' : index === 2 ? 'top-3' : '';
+                return `
+                    <div class="ranking-item ${rankClass}">
+                        <span class="rank">#${index + 1}</span>
+                        <span class="player-name">${item.name}</span>
+                        <span class="score">${item.score}</span>
+                    </div>
+                `;
+            }).join('');
+            
+            document.getElementById(elementId).innerHTML = html || '<p style="text-align:center;color:#999;">データなし</p>';
+        }
+
+        // タブ切り替え
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                const parent = e.target.closest('.rankings, .left-panel');
+                parent.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                e.target.classList.add('active');
+                socket.emit('get_rankings');
+            });
+        });
+
+        // Socket.IOイベント
+        socket.on('connected', (data) => {
+            console.log('Connected to server');
+            socket.emit('get_rankings');
+        });
+
+        socket.on('rankings_update', (rankings) => {
+            displayRankings(rankings, 'rankingList');
+            displayRankings(rankings, 'gameRankingList');
+        });
+
+        socket.on('waiting_for_opponent', () => {
+            statusMessage.textContent = '対戦相手を探しています...';
+            findMatchBtn.textContent = 'キャンセル';
+            findMatchBtn.onclick = () => {
+                socket.emit('cancel_match');
+                statusMessage.textContent = '';
+                findMatchBtn.textContent = '対戦相手を探す';
+                findMatchBtn.onclick = findMatch;
+            };
+        });
+
+        socket.on('match_found', (data) => {
+            gameState.roomId = data.room_id;
+            gameState.opponentName = data.opponent;
+            gameState.playerName = playerNameInput.value || 'Anonymous';
+            
+            document.getElementById('opponentName').textContent = data.opponent;
+            
+            menu.classList.add('hidden');
+            gameScreen.classList.remove('hidden');
+            
+            startGame();
+        });
+
+        socket.on('opponent_update', (data) => {
+            opponentState.board = data.board;
+            opponentState.score = data.score;
+            opponentState.lines = data.lines;
+            opponentState.level = data.level;
+            
+            document.getElementById('opponentScore').textContent = data.score;
+            document.getElementById('opponentLines').textContent = data.lines;
+            document.getElementById('opponentLevel').textContent = data.level;
+            
+            draw();
+        });
+
+        socket.on('opponent_game_over', (data) => {
+            gameState.gameOver = true;
+            cancelAnimationFrame(animationId);
+            
+            const overlay = document.createElement('div');
+            overlay.className = 'overlay';
+            
+            const result = document.createElement('div');
+            result.className = data.winner ? 'game-result win' : 'game-result lose';
+            result.innerHTML = `
+                <h2>${data.winner ? '🎉 勝利! 🎉' : '😢 敗北... 😢'}</h2>
+                <p style="font-size:1.5em;margin:20px 0;">スコア: ${gameState.score}</p>
+                <button onclick="backToMenu()">メニューに戻る</button>
+            `;
+            
+            document.body.appendChild(overlay);
+            document.body.appendChild(result);
+        });
+
+        socket.on('opponent_disconnected', () => {
+            alert('対戦相手が切断しました');
+            backToMenu();
+        });
+
+        // マッチング開始
+        function findMatch() {
+            const name = playerNameInput.value.trim() || 'Anonymous';
+            socket.emit('find_match', { name });
+        }
+
+        findMatchBtn.addEventListener('click', findMatch);
+
+        // メニューに戻る
+        function backToMenu() {
+            gameState.gameOver = true;
+            cancelAnimationFrame(animationId);
+            
+            document.querySelectorAll('.overlay, .game-result').forEach(el => el.remove());
+            
+            gameScreen.classList.add('hidden');
+            menu.classList.remove('hidden');
+            
+            statusMessage.textContent = '';
+            findMatchBtn.textContent = '対戦相手を探す';
+            findMatchBtn.onclick = findMatch;
+            
+            socket.emit('get_rankings');
+        }
+
+        backToMenuBtn.addEventListener('click', backToMenu);
+
+        // 初期ランキング取得
+        socket.emit('get_rankings');
+    </script>
+</body>
+</html>
