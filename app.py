@@ -200,6 +200,12 @@ if __name__ == '__main__':
     # テンプレートディレクトリがない場合は作成
     os.makedirs('templates', exist_ok=True)
     
+    # 環境変数からポート番号を取得（Render用）
+    port = int(os.environ.get('PORT', 5000))
+    
     print('Starting Tetris Server...')
-    print('Access at: http://localhost:5000')
-    socketio.run(app, host='0.0.0.0', port=8000, debug=True)
+    print(f'Access at: http://localhost:{port}')
+    
+    # プロダクション環境では allow_unsafe_werkzeug=True を設定
+    # 本番環境では gunicorn + eventlet を推奨
+    socketio.run(app, host='0.0.0.0', port=port, debug=False, allow_unsafe_werkzeug=True)
