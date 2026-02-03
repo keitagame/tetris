@@ -6,4 +6,4 @@ services:
     buildCommand: |
       apt-get update && apt-get install -y ffmpeg
       pip install -r requirements.txt
-    startCommand: python app.py
+    startCommand: startCommand: gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:$PORT app:app
