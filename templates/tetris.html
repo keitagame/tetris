@@ -371,7 +371,7 @@
                     <!-- プレイヤー1（自分） -->
                     <div class="player-area">
                         <div class="player-label you">You</div>
-                        <canvas id="playerCanvas" width="100" height="200"></canvas>
+                        <canvas id="playerCanvas" width="300" height="600"></canvas>
                         <div class="info-panel">
                             <div class="info-item">
                                 <span class="info-label">スコア:</span>
@@ -393,7 +393,7 @@
                     <!-- プレイヤー2（対戦相手） -->
                     <div class="player-area">
                         <div class="player-label opponent" id="opponentName">Opponent</div>
-                        <canvas id="opponentCanvas" width="100" height="200"></canvas>
+                        <canvas id="opponentCanvas" width="300" height="600"></canvas>
                         <div class="info-panel">
                             <div class="info-item">
                                 <span class="info-label">スコア:</span>
@@ -435,7 +435,7 @@
         // ゲーム定数
         const COLS = 10;
         const ROWS = 20;
-        const BLOCK_SIZE = 10;
+        const BLOCK_SIZE = 30;
 
         // テトロミノの形状
         const TETROMINOS = {
