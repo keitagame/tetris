@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>対戦テトリス - Tetris Battle</title>
+    <title>TETRIS</title>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <style>
         * {
@@ -14,7 +14,7 @@
 
         body {
             font-family: 'Arial', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #000000 0%, #000000 100%);
             min-height: 100vh;
             display: flex;
             justify-content: center;
@@ -44,7 +44,7 @@
         }
 
         .left-panel, .right-panel {
-            background: rgba(255, 255, 255, 0.95);
+            background: rgba(208, 208, 208, 0.95);
             border-radius: 15px;
             padding: 20px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
@@ -58,10 +58,10 @@
         }
 
         .player-area {
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 15px;
-            padding: 25px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            background: rgba(24, 24, 24, 0.95);
+            border-radius: 0px;
+            padding: 5px;
+           
         }
 
         .player-label {
@@ -92,7 +92,7 @@
 
         .info-panel {
             margin-top: 20px;
-            background: #f5f5f5;
+            background: #2c2c2c;
             padding: 15px;
             border-radius: 8px;
         }
@@ -117,7 +117,7 @@
         .controls {
             margin-top: 20px;
             padding: 15px;
-            background: #e3f2fd;
+            background: #434343;
             border-radius: 8px;
         }
 
@@ -134,19 +134,20 @@
         button {
             padding: 12px 30px;
             font-size: 1.1em;
-            background: #4CAF50;
+            background: #0068a4;
+
             color: white;
             border: none;
-            border-radius: 8px;
+            border-radius: 0px;
             cursor: pointer;
             transition: all 0.3s;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            border:1px solid #002940;
         }
 
         button:hover {
-            background: #45a049;
+            background: #0068a4;
             transform: translateY(-2px);
-            box-shadow: 0 6px 8px rgba(0,0,0,0.3);
+            
         }
 
         button:disabled {
@@ -156,11 +157,12 @@
         }
 
         .menu {
+            border:1px solid #0068a4;
             text-align: center;
-            background: rgba(255, 255, 255, 0.95);
+            background: rgba(27, 27, 27, 0.95);
             padding: 40px;
             border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            color:white;
             max-width: 500px;
             margin: 0 auto;
         }
@@ -170,8 +172,8 @@
             padding: 12px;
             margin: 20px 0;
             font-size: 1.1em;
-            border: 2px solid #ddd;
-            border-radius: 8px;
+            border: 0px solid #ddd;
+            border-radius: 0px;
         }
 
         .menu button {
@@ -201,7 +203,7 @@
         }
 
         .tab.active {
-            background: #4CAF50;
+            background: #0068a4;
             color: white;
         }
 
@@ -334,17 +336,17 @@
 </head>
 <body>
     <div class="container">
-        <h1>🎮 対戦テトリス 🎮</h1>
+        <h1>TETRIS!!</h1>
 
         <!-- メニュー画面 -->
         <div id="menu" class="menu">
-            <h2>Welcome to Tetris Battle!</h2>
+            <h2>Tetris Battle!</h2>
             <input type="text" id="playerName" placeholder="プレイヤー名を入力" maxlength="20">
             <button id="findMatchBtn">対戦相手を探す</button>
             <div class="status-message" id="statusMessage"></div>
             
             <div class="rankings">
-                <h3>🏆 ランキング</h3>
+                <h3>ランキング</h3>
                 <div class="ranking-tabs">
                     <button class="tab active" data-tab="daily">日次</button>
                     <button class="tab" data-tab="weekly">週間</button>
@@ -357,7 +359,7 @@
         <div id="gameScreen" class="hidden">
             <div class="game-area">
                 <div class="left-panel">
-                    <h3>📊 ランキング</h3>
+                    <h3>ランキング</h3>
                     <div class="ranking-tabs">
                         <button class="tab active" data-tab="daily">日次</button>
                         <button class="tab" data-tab="weekly">週間</button>
@@ -411,11 +413,11 @@
 
                 <div class="right-panel">
                     <div class="controls">
-                        <h3>🎮 操作方法</h3>
-                        <p>⬅️ 左矢印: 左移動</p>
-                        <p>➡️ 右矢印: 右移動</p>
-                        <p>⬇️ 下矢印: 高速落下</p>
-                        <p>⬆️ 上矢印: 回転</p>
+                        <h3> 操作方法</h3>
+                        <p>左矢印: 左移動</p>
+                        <p>右矢印: 右移動</p>
+                        <p>下矢印: 高速落下</p>
+                        <p>上矢印: 回転</p>
                         <p>スペース: 即座に落下</p>
                     </div>
                     <button id="backToMenuBtn" style="width: 100%; margin-top: 20px; background: #f44336;">
@@ -848,7 +850,7 @@
             const result = document.createElement('div');
             result.className = data.winner ? 'game-result win' : 'game-result lose';
             result.innerHTML = `
-                <h2>${data.winner ? '🎉 勝利! 🎉' : '😢 敗北... 😢'}</h2>
+                <h2>${data.winner ? ' YOU WIN ' : 'YOU LOSE'}</h2>
                 <p style="font-size:1.5em;margin:20px 0;">スコア: ${gameState.score}</p>
                 <button onclick="backToMenu()">メニューに戻る</button>
             `;
